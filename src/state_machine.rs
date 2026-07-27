@@ -83,6 +83,17 @@ impl StateMachine {
         !self.os_wins.is_empty()
     }
 
+    /// Drop all held-key tracking and return to IDLE. Used around a lock,
+    /// where key-up events never arrive (the session is switched away), so
+    /// stale "still held" state would otherwise persist after unlock.
+    pub fn clear_held_keys(&mut self) {
+        self.state = State::Idle;
+        self.candidate_key = None;
+        self.pressed_modifiers.clear();
+        self.suppressed_wins.clear();
+        self.os_wins.clear();
+    }
+
     fn set_state(&mut self, state: State) {
         self.state = state;
     }
@@ -546,6 +557,24 @@ mod tests {
         m.handle_key_event(VK_SPACE, false, false);
         assert_eq!(m.state, State::Idle);
         assert!(!m.os_win_held());
+    }
+
+    #[test]
+    fn clear_held_keys_resets_os_win_tracking() {
+        // Reproduces the lock loop: after locking, key-ups are lost, so we
+        // clear tracking; a subsequent bare L must not look like Win+L.
+        let mut m = sm();
+        m.handle_key_event(VK_LWIN, true, true);
+        assert!(m.os_win_held());
+
+        m.clear_held_keys();
+        assert!(!m.os_win_held());
+        assert_eq!(m.state, State::Idle);
+
+        // Bare L in IDLE without Win held stays native.
+        let o = m.handle_key_event(b'L' as u16, true, false);
+        assert!(o.pass_through);
+        assert!(o.actions.is_empty());
     }
 
     #[test]

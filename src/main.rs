@@ -80,6 +80,9 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
                 {
                     lock_requested = true;
                     suppress = true;
+                    // Key-ups (Win, L) won't arrive while locked; clear the
+                    // held-key tracking so a later bare L can't re-trigger.
+                    app.sm.clear_held_keys();
                     return;
                 }
 
@@ -179,6 +182,15 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
         WM_WTSSESSION_CHANGE => {
             if wparam == WTS_SESSION_UNLOCK {
                 lock_guard::on_session_unlock();
+                // Any keys physically released while locked were missed;
+                // start clean so nothing appears stuck "held".
+                APP.with(|cell| {
+                    if let Ok(mut guard) = cell.try_borrow_mut() {
+                        if let Some(app) = guard.as_mut() {
+                            app.sm.clear_held_keys();
+                        }
+                    }
+                });
             }
             0
         }
