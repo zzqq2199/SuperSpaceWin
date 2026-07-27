@@ -31,7 +31,7 @@
         "minus": {"key": "f11"},
         "equal": {"key": "f12"}
     },
-    "blacklist": [],
+    "blacklist": ["GameApp.exe"],
     "verbose": {
         "on_state": false,
         "on_event": false,
