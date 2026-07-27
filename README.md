@@ -42,6 +42,15 @@ cargo build --release
 .\target\release\spacepp-win.exe
 ```
 
+或一键发布到 `publish\`（exe 副本 + 指向仓库根 `config.json` 的相对符号链接，改仓库配置即时生效）：
+
+```powershell
+.\scripts\publish.ps1
+.\publish\spacepp-win.exe
+```
+
+创建符号链接需要开启 Windows 开发者模式（或以管理员运行）。`publish\` 中 exe 被 git 忽略，`config.json` 链接本身被跟踪；克隆仓库后需 `git config core.symlinks true` 才能正确检出链接。
+
 产物为单个 exe（静态链接，默认配置已编译内嵌），拷到任意位置即可运行。如需自定义映射，把 `config.json` 放在 exe 同目录（或用环境变量 `SPACEPP_CONFIG` 指定路径）即可覆盖内置默认。程序无窗口，仅显示托盘图标；右键菜单可开关"开机自启"（写入 HKCU Run 注册表项）和退出。
 
 日志（verbose 开启时）写入 `%TEMP%\spacepp.log`。
