@@ -1,98 +1,159 @@
-# Space++ (Windows)
+# Space++ for Windows
 
-Space++ 的 Windows 移植版：把空格键变成 Hyper 键。按住空格 + 其他键触发快捷操作，轻敲空格仍然输出空格。核心状态机与 [macOS 版 SuperSpace](https://github.com/zzqq2199/SuperSpace) 保持一致。
+[![Build & Release](https://github.com/zzqq2199/SuperSpaceWin/actions/workflows/release.yml/badge.svg)](https://github.com/zzqq2199/SuperSpaceWin/actions/workflows/release.yml)
+[![Release](https://img.shields.io/github/v/release/zzqq2199/SuperSpaceWin?display_name=tag&sort=semver)](https://github.com/zzqq2199/SuperSpaceWin/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Platform: Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6?logo=windows)
 
-使用 Rust 实现：`WH_KEYBOARD_LL` 低级键盘钩子拦截按键，`SendInput` 注入合成按键（带 `dwExtraInfo` 标记防止自捕获），系统托盘图标显示 IDLE / HYPER 状态。
+**Keep your hands on the home row. Turn the space bar into a Hyper key.**
 
-## 快捷键（默认 config.json，已按 Windows 语义翻译）
+Space++ lets you hold <kbd>Space</kbd> and use the keys already under your
+fingers for arrows, page navigation, word/line deletion, copy/paste, and
+function keys — no reaching for the arrow cluster, <kbd>Home</kbd>/<kbd>End</kbd>,
+or the <kbd>F</kbd> row. Tap <kbd>Space</kbd> and it's still just a space.
 
-| 组合 | 功能 |
-|------|------|
-| `space + h/j/k/l` | ← ↓ ↑ → |
-| `space + y / o` | Home / End |
-| `space + u / i` | Page Down / Page Up |
-| `space + e` | Esc |
-| `space + m` | Backspace |
-| `space + n` | Ctrl+Backspace（删前一个词） |
-| `space + b` | 删至行首（Shift+Home, Backspace） |
-| `space + ,` | Delete |
-| `space + .` | Ctrl+Delete（删后一个词） |
-| `space + /` | 删至行尾（Shift+End, Delete） |
-| `space + c / v` | Ctrl+C / Ctrl+V |
-| `space + 1..0 - =` | F1..F12 |
-| `space + q` | 退出 Space++ |
+English | [中文](README_CN.md)
 
-长按空格（`hold_as_hyper: true`）直接进入 Hyper 模式；敲空格照常输出空格。
+---
 
-## 状态机
+## Why?
 
-四个状态，与 mac 版 `event_handler.py` 一致：
+The arrow keys, <kbd>Home</kbd>/<kbd>End</kbd>, <kbd>Page Up/Down</kbd>, and
+<kbd>Delete</kbd> are all far from the home row. Every trip there breaks your
+flow and slows you down.
 
-- `IDLE`：空闲。无修饰键时按下空格 → 吞掉，进入 `ONLY_SPACE_DOWN`
-- `ONLY_SPACE_DOWN`：空格弹起 → 补发空格（轻敲）；按下普通键 → 记为候选键进入 `SPACE_NORM_DOWN`；空格自动重复 → `HYPER_MODE`
-- `SPACE_NORM_DOWN`：消歧关键态。空格先弹起 → 是打字，补发"空格+候选键"；候选键先弹起/重复/按下第三键 → 是 Hyper 组合，发映射键
-- `HYPER_MODE`：映射表中的键按下即发映射键，空格弹起回 `IDLE`
+Space++ solves this by overloading the one key your thumbs already rest on:
 
-## 构建与运行
+- **No home-row exits** — move the caret, jump lines, page through documents,
+  and delete by word or line without moving your hands.
+- **Zero learning curve for typing** — a normal space is unchanged; the Hyper
+  layer only activates while <kbd>Space</kbd> is held.
+- **Single file, no install** — one ~340 KB exe with the default config baked
+  in. Download and run.
+- **Faithful to the macOS original** — the exact same tap/hold disambiguation
+  state machine as [SuperSpace](https://github.com/zzqq2199/SuperSpace),
+  reimplemented natively in Rust.
 
-需要 Rust 工具链（GNU 或 MSVC target 均可）：
+## Quick start
 
-```powershell
-cargo build --release
-.\target\release\spacepp-win.exe
+1. Download `SpacePP-<version>-windows-x86_64.zip` from the
+   [Releases](https://github.com/zzqq2199/SuperSpaceWin/releases) page.
+2. Unzip and run `spacepp-win.exe`.
+3. A tray icon appears (gray = idle, orange = Hyper active). That's it — start
+   holding <kbd>Space</kbd>.
+
+Right-click the tray icon for **Start with Windows** and **Exit**. To quit from
+the keyboard, press <kbd>Space</kbd>+<kbd>Q</kbd>.
+
+> Prefer to build it yourself? See [docs/BUILDING.md](docs/BUILDING.md).
+
+## Shortcuts
+
+All shortcuts are "hold <kbd>Space</kbd>, then press the key". Fully
+customizable in `config.json`.
+
+| Keys | Action | Equivalent |
+| --- | --- | --- |
+| <kbd>Space</kbd>+<kbd>H</kbd>/<kbd>J</kbd>/<kbd>K</kbd>/<kbd>L</kbd> | Move caret | ← ↓ ↑ → |
+| <kbd>Space</kbd>+<kbd>Y</kbd> / <kbd>O</kbd> | Line start / end | Home / End |
+| <kbd>Space</kbd>+<kbd>U</kbd> / <kbd>I</kbd> | Page down / up | Page Down / Page Up |
+| <kbd>Space</kbd>+<kbd>E</kbd> | Escape | Esc |
+| <kbd>Space</kbd>+<kbd>M</kbd> | Delete previous char | Backspace |
+| <kbd>Space</kbd>+<kbd>N</kbd> | Delete previous word | Ctrl+Backspace |
+| <kbd>Space</kbd>+<kbd>B</kbd> | Delete to line start | Shift+Home, Backspace |
+| <kbd>Space</kbd>+<kbd>,</kbd> | Delete next char | Delete |
+| <kbd>Space</kbd>+<kbd>.</kbd> | Delete next word | Ctrl+Delete |
+| <kbd>Space</kbd>+<kbd>/</kbd> | Delete to line end | Shift+End, Delete |
+| <kbd>Space</kbd>+<kbd>C</kbd> / <kbd>V</kbd> | Copy / paste | Ctrl+C / Ctrl+V |
+| <kbd>Space</kbd>+<kbd>1</kbd>…<kbd>0</kbd> <kbd>-</kbd> <kbd>=</kbd> | Function keys | F1…F12 |
+| <kbd>Space</kbd>+<kbd>Q</kbd> | Quit Space++ | — |
+
+Holding <kbd>Space</kbd> by itself enters Hyper mode (`hold_as_hyper: true`); a
+quick tap still types a space.
+
+## How it works
+
+The hard part is telling "typing a space" apart from "using Space as a
+modifier", without adding lag. Space++ defers the decision through a small
+state machine (identical to the macOS version):
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+    IDLE --> ONLY_SPACE_DOWN: Space down (swallowed)
+    ONLY_SPACE_DOWN --> IDLE: Space up — emit a real space (tap)
+    ONLY_SPACE_DOWN --> HYPER_MODE: Space auto-repeat (hold)
+    ONLY_SPACE_DOWN --> SPACE_NORM_DOWN: another key down (ambiguous)
+    SPACE_NORM_DOWN --> IDLE: Space up first — typing (space + key)
+    SPACE_NORM_DOWN --> HYPER_MODE: key up/repeat first — emit mapped key
+    HYPER_MODE --> IDLE: Space up
 ```
 
-或一键发布到 `publish\`（exe 副本 + 指向仓库根 `config.json` 的相对符号链接，改仓库配置即时生效）：
+Under the hood: a `WH_KEYBOARD_LL` low-level keyboard hook intercepts input, and
+synthetic keys are injected with `SendInput` tagged via `dwExtraInfo` so the
+hook ignores its own output. A physically held modifier (Shift, Ctrl, Win…)
+combines with injected keys at the OS level, so e.g. <kbd>Shift</kbd>+<kbd>Space</kbd>+<kbd>H</kbd>
+selects text.
 
-```powershell
-.\scripts\publish.ps1
-.\publish\spacepp-win.exe
-```
+## Configuration
 
-创建符号链接需要开启 Windows 开发者模式（或以管理员运行）。`publish\` 中 exe 被 git 忽略，`config.json` 链接本身被跟踪；克隆仓库后需 `git config core.symlinks true` 才能正确检出链接。
-
-产物为单个 exe（静态链接，默认配置已编译内嵌），拷到任意位置即可运行。如需自定义映射，把 `config.json` 放在 exe 同目录（或用环境变量 `SPACEPP_CONFIG` 指定路径）即可覆盖内置默认。程序无窗口，仅显示托盘图标；右键菜单可开关"开机自启"（写入 HKCU Run 注册表项）和退出。
-
-日志（verbose 开启时）写入 `%TEMP%\spacepp.log`。
-
-## 测试
-
-状态机与配置解析为纯逻辑模块，可直接跑单元测试：
-
-```powershell
-cargo test
-```
-
-## GitHub 自动构建与发布
-
-`.github/workflows/release.yml` 在推送 `main` 后自动：跑测试 → 构建 release exe → 打包 zip（exe + config.json + README）上传 Actions Artifact；如果 `Cargo.toml` 中的版本尚无对应 `v<版本>` 标签，则创建 GitHub Release 并上传 zip。同一版本号再次推送只更新 Artifact，不重复发 Release。发新版前更新 `Cargo.toml` 的 `version` 即可。
-
-## 配置格式
-
-与 mac 版相同的 JSON 结构和键名（`command` 自动翻译为 Ctrl，`option` 为 Alt，`delete` 表示 Backspace）。此外映射值支持数组表示按键序列：
+Space++ runs on the embedded default config. To customize, place a `config.json`
+next to the exe (or point `SPACEPP_CONFIG` at one). It uses the same JSON shape
+and key names as the macOS version — `command` is translated to Ctrl, `option`
+to Alt, and `delete` means Backspace. A mapping value may also be an **array**
+to express a key sequence:
 
 ```json
 "b": [{"key": "home", "modifiers": ["shift"]}, {"key": "delete"}]
 ```
 
-### Win+L 锁屏防护
+### Blacklist — pass through for specific apps
 
-`Win+L` 由 winlogon 基于原始输入（Raw Input）匹配，发生在低级钩子拦截之前——只要物理 Win 和物理 L 同时按下，用户态程序无法阻止锁屏（PowerToys 同样无法重映射 Win+L）。因此采用策略防护：
-
-- **运行期间**写入 `HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System\DisableLockWorkstation=1`，系统级 Win+L 失效，`space+Win+L` 安全地移动窗口（注入合成 `Win+→`）
-- **主动锁屏仍可用**：非 hyper 状态下按裸 `Win+L`（Win 先按、OS 可见）时，Space++ 临时放开策略并调用 `LockWorkStation()` 代理锁屏，会话解锁后自动恢复策略
-- **正常退出时**删除该注册表值，系统行为完全还原
-
-注意：锁屏期间"开始菜单 → 锁定"等入口也会被该策略隐藏；如果程序被强杀（未走正常退出），Win+L 会保持禁用，重新运行一次 Space++ 再正常退出即可恢复。
-
-Hyper 只在**空格先按下**时生效：修饰键先于空格按下时一切保持原生行为。物理 Win 键始终透传给 OS（不再抑制——抑制既挡不住 winlogon 的原始输入 Win+L，又会导致 Win 键卡住），`space+Win+方向映射键` 注入的是裸方向键，由 OS 层按住的物理 Win 自动组合成 `Win+方向键`。
-
-### 黑名单
-
-前台窗口属于指定进程时 Space++ 完全透传（空格就是空格），适合游戏等需要原始按键的场景。进程名不区分大小写：
+When the foreground window belongs to a listed process, Space++ gets out of the
+way entirely (a space is just a space). Handy for games that need raw keys.
+Process names are case-insensitive:
 
 ```json
 "blacklist": ["GameApp.exe", "AnotherGame.exe"]
 ```
 
-检测结果按前台窗口句柄缓存，仅在切换窗口时才查询进程信息，对按键延迟无影响。
+The check is cached per foreground window, so it only queries process info when
+you switch windows — no added latency while typing.
+
+### Win+L lock protection
+
+Moving windows with <kbd>Space</kbd>+<kbd>Win</kbd>+<kbd>H</kbd>/<kbd>J</kbd>/<kbd>K</kbd>/<kbd>L</kbd>
+is a natural gesture, but <kbd>Win</kbd>+<kbd>L</kbd> would normally lock your
+PC. `Win+L` is matched by winlogon on raw input, *before* a keyboard hook can
+suppress it — so it can't be blocked from user space (PowerToys can't remap it
+either). Space++ handles this with a policy guard instead:
+
+- While running, it sets `DisableLockWorkstation` for the current user, so the
+  OS ignores <kbd>Win</kbd>+<kbd>L</kbd> and `Space+Win+L` safely moves the
+  window.
+- An **intentional** bare <kbd>Win</kbd>+<kbd>L</kbd> is still detected and
+  locks via `LockWorkStation()`; the guard is re-armed after you unlock.
+- On clean exit, the registry value is removed and native behavior is restored.
+
+> If Space++ is force-killed instead of exiting cleanly, the policy value can
+> linger and <kbd>Win</kbd>+<kbd>L</kbd> stays disabled. Run Space++ once more
+> and exit it normally to restore. While the guard is active, the "Lock" entry
+> in the Start menu is also hidden by this Windows policy.
+
+## Configuration reference
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `hyper_keys_map` | object | Source key → target chord (or array of chords) |
+| `hold_as_hyper` | bool | Holding Space alone enters Hyper mode |
+| `blacklist` | string[] | Foreground process names where Space++ is disabled |
+| `verbose.on_state` / `on_event` / `on_action` | bool | Debug logging to `%TEMP%\spacepp.log` |
+
+## Building
+
+See [docs/BUILDING.md](docs/BUILDING.md) for build, test, publish, and release
+instructions.
+
+## License
+
+[MIT](LICENSE) © 2026 Quan Zhou
