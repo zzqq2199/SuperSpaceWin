@@ -9,7 +9,16 @@ cargo build --release
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 New-Item -ItemType Directory -Force -Path publish | Out-Null
-Copy-Item target\release\spacepp-win.exe publish\spacepp-win.exe -Force
+# If the published exe is running it is locked, but Windows still allows
+# renaming it. Move it aside, then clean up the leftover on a later run.
+Remove-Item publish\spacepp-win.exe.old -Force -ErrorAction SilentlyContinue
+try {
+    Copy-Item target\release\spacepp-win.exe publish\spacepp-win.exe -Force
+} catch [System.IO.IOException] {
+    Move-Item publish\spacepp-win.exe publish\spacepp-win.exe.old -Force
+    Copy-Item target\release\spacepp-win.exe publish\spacepp-win.exe -Force
+    Write-Host "Note: old exe was running; renamed to spacepp-win.exe.old (restart the app to use the new build)."
+}
 
 $link = Join-Path $root "publish\config.json"
 $item = Get-Item $link -ErrorAction SilentlyContinue

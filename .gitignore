@@ -1,3 +1,4 @@
 /target
 *.log
 /publish/*.exe
+/publish/*.exe.old

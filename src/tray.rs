@@ -1,6 +1,7 @@
 //! System tray icon with IDLE / HYPER state colors and a context menu.
-//! Icons are drawn programmatically (rounded square with a space-bar mark)
-//! so no asset files are needed.
+//! Icons replicate icons/idle_icon.svg and icons/hyper_icon.svg from the
+//! macOS version (circle + crosshair; hyper adds a center dot), rendered
+//! programmatically so no image decoding is needed.
 
 use std::mem::{size_of, zeroed};
 
@@ -26,19 +27,45 @@ pub const MENU_ABOUT: usize = 1;
 pub const MENU_AUTOSTART: usize = 2;
 pub const MENU_EXIT: usize = 3;
 
-const IDLE_COLOR: u32 = 0x00_55_55_55; // gray (0x00RRGGBB)
-const HYPER_COLOR: u32 = 0x00_FF_7A_00; // orange
+// Colors from the SVGs (0xRRGGBB).
+const BASE_COLOR: u32 = 0x2C_3E_50; // circle fill
+const IDLE_ACCENT: u32 = 0x34_98_DB; // blue
+const HYPER_ACCENT: u32 = 0xE7_4C_3C; // red
 
 pub fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-/// 32x32 ARGB icon: rounded square filled with `rgb`, white bar near the
-/// bottom suggesting a space bar.
-fn create_state_icon(rgb: u32) -> HICON {
+/// Sample the SVG design at a point in its 16x16 viewBox coordinates.
+/// Returns 0xAARRGGBB. Geometry from idle_icon.svg / hyper_icon.svg:
+/// circle cx=8 cy=8 r=6 fill=base stroke=accent stroke-width=1,
+/// crosshair lines (5,8)-(11,8) and (8,5)-(8,11) stroke-width=2,
+/// hyper adds a filled accent circle r=2.
+fn sample_svg(sx: f32, sy: f32, accent: u32, with_dot: bool) -> u32 {
+    let dx = sx - 8.0;
+    let dy = sy - 8.0;
+    let d = (dx * dx + dy * dy).sqrt();
+    if d > 6.5 {
+        return 0; // transparent
+    }
+    if d >= 5.5 {
+        return 0xFF_00_00_00 | accent; // circle stroke
+    }
+    if with_dot && d <= 2.0 {
+        return 0xFF_00_00_00 | accent; // hyper center dot
+    }
+    let h_line = (7.0..=9.0).contains(&sy) && (5.0..=11.0).contains(&sx);
+    let v_line = (7.0..=9.0).contains(&sx) && (5.0..=11.0).contains(&sy);
+    if h_line || v_line {
+        return 0xFF_00_00_00 | accent; // crosshair
+    }
+    0xFF_00_00_00 | BASE_COLOR
+}
+
+/// 32x32 ARGB icon rendering the SVG design with 3x3 supersampling.
+fn create_state_icon(accent: u32, with_dot: bool) -> HICON {
     const S: i32 = 32;
-    const MARGIN: i32 = 2;
-    const RADIUS: i32 = 8;
+    const SUB: i32 = 3;
 
     unsafe {
         let mut bmi: BITMAPINFO = zeroed();
@@ -60,15 +87,23 @@ fn create_state_icon(rgb: u32) -> HICON {
         let px = bits as *mut u32;
         for y in 0..S {
             for x in 0..S {
-                let inside = inside_rounded_rect(x, y, S, MARGIN, RADIUS);
-                let bar = (9..=22).contains(&x) && (21..=25).contains(&y);
-                let v: u32 = if inside && bar {
-                    0xFF_FF_FF_FF
-                } else if inside {
-                    0xFF_00_00_00 | rgb
-                } else {
-                    0
-                };
+                // Average SUB*SUB subsamples (premultiplied-alpha style
+                // average is overkill at this size; plain average is fine).
+                let (mut a, mut r, mut g, mut b) = (0u32, 0u32, 0u32, 0u32);
+                for j in 0..SUB {
+                    for i in 0..SUB {
+                        // Map pixel to the 16x16 SVG viewBox.
+                        let sx = (x as f32 + (i as f32 + 0.5) / SUB as f32) * 16.0 / S as f32;
+                        let sy = (y as f32 + (j as f32 + 0.5) / SUB as f32) * 16.0 / S as f32;
+                        let c = sample_svg(sx, sy, accent, with_dot);
+                        a += c >> 24;
+                        r += (c >> 16) & 0xFF;
+                        g += (c >> 8) & 0xFF;
+                        b += c & 0xFF;
+                    }
+                }
+                let n = (SUB * SUB) as u32;
+                let v = ((a / n) << 24) | ((r / n) << 16) | ((g / n) << 8) | (b / n);
                 *px.add((y * S + x) as usize) = v;
             }
         }
@@ -88,33 +123,6 @@ fn create_state_icon(rgb: u32) -> HICON {
     }
 }
 
-fn inside_rounded_rect(x: i32, y: i32, size: i32, margin: i32, r: i32) -> bool {
-    let lo = margin;
-    let hi = size - 1 - margin;
-    if x < lo || x > hi || y < lo || y > hi {
-        return false;
-    }
-    let corners = [
-        (lo + r, lo + r),
-        (hi - r, lo + r),
-        (lo + r, hi - r),
-        (hi - r, hi - r),
-    ];
-    for (cx, cy) in corners {
-        let in_corner_box = (x < lo + r || x > hi - r) && (y < lo + r || y > hi - r);
-        if in_corner_box {
-            // Only test against the nearest corner center.
-            let near = (x - cx).abs() <= r && (y - cy).abs() <= r;
-            if near {
-                let dx = x - cx;
-                let dy = y - cy;
-                return dx * dx + dy * dy <= r * r;
-            }
-        }
-    }
-    true
-}
-
 pub struct Tray {
     hwnd: HWND,
     icon_idle: HICON,
@@ -126,8 +134,8 @@ impl Tray {
     pub fn new(hwnd: HWND, tooltip: &str) -> Tray {
         let tray = Tray {
             hwnd,
-            icon_idle: create_state_icon(IDLE_COLOR),
-            icon_hyper: create_state_icon(HYPER_COLOR),
+            icon_idle: create_state_icon(IDLE_ACCENT, false),
+            icon_hyper: create_state_icon(HYPER_ACCENT, true),
             tip: wide(tooltip),
         };
         let nid = tray.notify_data(tray.icon_idle);
