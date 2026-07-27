@@ -77,11 +77,15 @@ cargo test
 
 ### Win+L 锁屏防护
 
-`Win+L` 由 winlogon 在系统层处理，键盘钩子无法拦截。为了让 `space+Win+L`（移动窗口）不误触锁屏：
+`Win+L` 由 winlogon 基于原始输入（Raw Input）匹配，发生在低级钩子拦截之前——只要物理 Win 和物理 L 同时按下，用户态程序无法阻止锁屏（PowerToys 同样无法重映射 Win+L）。因此采用策略防护：
 
-- Hyper 流程中按下的物理 Win 键会被吞掉（OS 看不到 Win 按下，就无法匹配 Win+L），注入映射键时把 Win 显式合成进组合（`space+Win+L` 实际注入干净的 `Win+→`）；Win 被吞期间未映射的键也会合成注入以保持 `Win+键` 语义
+- **运行期间**写入 `HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System\DisableLockWorkstation=1`，系统级 Win+L 失效，`space+Win+L` 安全地移动窗口（注入合成 `Win+→`）
+- **主动锁屏仍可用**：非 hyper 状态下按裸 `Win+L`（Win 先按、OS 可见）时，Space++ 临时放开策略并调用 `LockWorkStation()` 代理锁屏，会话解锁后自动恢复策略
+- **正常退出时**删除该注册表值，系统行为完全还原
 
-Hyper 只在**空格先按下**时生效：修饰键（含 Win）先于空格按下时一切保持原生行为，此时 `Win+L` 就是正常锁屏。单独使用 Win（开始菜单、主动锁屏）不受任何影响。
+注意：锁屏期间"开始菜单 → 锁定"等入口也会被该策略隐藏；如果程序被强杀（未走正常退出），Win+L 会保持禁用，重新运行一次 Space++ 再正常退出即可恢复。
+
+Hyper 只在**空格先按下**时生效：修饰键先于空格按下时一切保持原生行为。Hyper 流程中物理 Win 会被吞掉并合成进注入组合，未映射的键也会补上 Win 合成注入以保持 `Win+键` 语义。
 
 ### 黑名单
 

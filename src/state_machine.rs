@@ -60,6 +60,9 @@ pub struct StateMachine {
     /// lock the workstation - Win+L cannot be blocked by hooks). The
     /// suppressed Win is merged into every injected chord instead.
     suppressed_wins: HashSet<u16>,
+    /// Win keys the OS has seen go down (pressed in IDLE and passed
+    /// through). Used to detect an intentional bare Win+L.
+    os_wins: HashSet<u16>,
 }
 
 impl StateMachine {
@@ -71,7 +74,13 @@ impl StateMachine {
             map,
             pressed_modifiers: HashSet::new(),
             suppressed_wins: HashSet::new(),
+            os_wins: HashSet::new(),
         }
+    }
+
+    /// True if a Win key is held and the OS knows about it.
+    pub fn os_win_held(&self) -> bool {
+        !self.os_wins.is_empty()
     }
 
     fn set_state(&mut self, state: State) {
@@ -92,6 +101,14 @@ impl StateMachine {
             self.pressed_modifiers.insert(key);
         } else {
             self.pressed_modifiers.remove(&key);
+        }
+        // Bypassed events reach the OS, so a bypassed Win is OS-visible.
+        if key == VK_LWIN || key == VK_RWIN {
+            if is_down {
+                self.os_wins.insert(key);
+            } else {
+                self.os_wins.remove(&key);
+            }
         }
     }
 
@@ -145,6 +162,11 @@ impl StateMachine {
         if key == VK_LWIN || key == VK_RWIN {
             if self.state == State::Idle {
                 self.suppressed_wins.remove(&key);
+                if is_down {
+                    self.os_wins.insert(key);
+                } else {
+                    self.os_wins.remove(&key);
+                }
                 // fall through to normal Idle handling (pass through)
             } else if is_down {
                 // Fire a pending candidate first: the new Win applies to
@@ -163,6 +185,7 @@ impl StateMachine {
                 }
                 // Win was pressed before the hyper flow started (the OS saw
                 // it go down), so its release must reach the OS.
+                self.os_wins.remove(&key);
                 return Output { pass_through: true, actions };
             }
         }
@@ -506,8 +529,33 @@ mod tests {
     fn win_tap_in_idle_stays_native() {
         let mut m = sm();
         assert!(m.handle_key_event(VK_LWIN, true, true).pass_through);
+        assert!(m.os_win_held(), "Idle Win is OS-visible");
         assert!(m.handle_key_event(VK_LWIN, false, true).pass_through);
+        assert!(!m.os_win_held());
         assert_eq!(m.state, State::Idle);
+    }
+
+    #[test]
+    fn suppressed_win_is_not_os_visible() {
+        // Bare-Win+L detection must not fire for a hyper-suppressed Win,
+        // even if space is released while Win stays held.
+        let mut m = sm();
+        m.handle_key_event(VK_SPACE, true, false);
+        m.handle_key_event(VK_LWIN, true, true);
+        assert!(!m.os_win_held());
+        m.handle_key_event(VK_SPACE, false, false);
+        assert_eq!(m.state, State::Idle);
+        assert!(!m.os_win_held());
+    }
+
+    #[test]
+    fn tracked_modifier_win_is_os_visible() {
+        // Blacklist bypass path: Win reaches the OS, so it counts.
+        let mut m = sm();
+        m.track_modifier(VK_LWIN, true);
+        assert!(m.os_win_held());
+        m.track_modifier(VK_LWIN, false);
+        assert!(!m.os_win_held());
     }
 
     #[test]

@@ -9,6 +9,7 @@ mod config;
 mod foreground;
 mod key_codes;
 mod keyboard;
+mod lock_guard;
 mod logger;
 mod state_machine;
 mod tray;
@@ -19,6 +20,9 @@ use windows_sys::Win32::Foundation::{
     GetLastError, ERROR_ALREADY_EXISTS, HWND, LPARAM, LRESULT, WPARAM,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows_sys::Win32::System::RemoteDesktop::{
+    WTSRegisterSessionNotification, WTSUnRegisterSessionNotification, NOTIFY_FOR_THIS_SESSION,
+};
 use windows_sys::Win32::System::Threading::CreateMutexW;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, MessageBoxW,
@@ -33,6 +37,10 @@ use state_machine::{State, StateMachine};
 use tray::{show_menu, wide, Tray, MENU_ABOUT, MENU_AUTOSTART, MENU_EXIT, WM_TRAY};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+const WM_WTSSESSION_CHANGE: u32 = 0x02B1;
+const WTS_SESSION_UNLOCK: usize = 0x8;
+const VK_L: u16 = 0x4C;
 
 struct App {
     sm: StateMachine,
@@ -52,6 +60,7 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
         if !ev.injected_by_us {
             let mut suppress = false;
             let mut actions = Vec::new();
+            let mut lock_requested = false;
             APP.with(|cell| {
                 // try_borrow_mut: if the hook somehow re-enters, pass through.
                 let Ok(mut guard) = cell.try_borrow_mut() else {
@@ -60,6 +69,19 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
                 let Some(app) = guard.as_mut() else { return };
 
                 let is_mod = is_modifier_vk(ev.vk);
+
+                // Bare Win+L (Win held natively, no hyper flow): the OS-level
+                // lock is disabled by our policy guard, so lock on the
+                // user's behalf.
+                if ev.vk == VK_L
+                    && ev.is_down
+                    && app.sm.state == State::Idle
+                    && app.sm.os_win_held()
+                {
+                    lock_requested = true;
+                    suppress = true;
+                    return;
+                }
 
                 // Blacklisted foreground app: pass everything through.
                 if !app.blacklist.is_empty() && app.blacklist.foreground_blacklisted() {
@@ -112,7 +134,10 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
                 actions = out.actions;
             });
 
-            // Inject outside the borrow so re-entrant hook calls can't panic.
+            // Act outside the borrow so re-entrant hook calls can't panic.
+            if lock_requested {
+                lock_guard::request_lock();
+            }
             if keyboard::execute(&actions) {
                 PostQuitMessage(0);
             }
@@ -148,6 +173,12 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     MENU_EXIT => PostQuitMessage(0),
                     _ => {}
                 }
+            }
+            0
+        }
+        WM_WTSSESSION_CHANGE => {
+            if wparam == WTS_SESSION_UNLOCK {
+                lock_guard::on_session_unlock();
             }
             0
         }
@@ -239,6 +270,10 @@ fn main() {
         });
     });
 
+    unsafe {
+        WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION);
+    }
+
     let hook = keyboard::install_hook(hook_proc);
     if hook.is_null() {
         error_box("键盘钩子安装失败。");
@@ -250,6 +285,7 @@ fn main() {
         return;
     }
     logger::log("[SpacePP] keyboard hook ready");
+    lock_guard::enable();
 
     let mut msg: MSG = unsafe { std::mem::zeroed() };
     unsafe {
@@ -259,7 +295,11 @@ fn main() {
         }
     }
 
+    lock_guard::disable();
     keyboard::remove_hook(hook);
+    unsafe {
+        WTSUnRegisterSessionNotification(hwnd);
+    }
     APP.with(|cell| {
         if let Some(app) = cell.borrow().as_ref() {
             app.tray.remove();
