@@ -70,3 +70,13 @@ cargo test
 ```json
 "b": [{"key": "home", "modifiers": ["shift"]}, {"key": "delete"}]
 ```
+
+### 黑名单
+
+前台窗口属于指定进程时 Space++ 完全透传（空格就是空格），适合游戏等需要原始按键的场景。进程名不区分大小写：
+
+```json
+"blacklist": ["GameApp.exe", "AnotherGame.exe"]
+```
+
+检测结果按前台窗口句柄缓存，仅在切换窗口时才查询进程信息，对按键延迟无影响。

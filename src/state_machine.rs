@@ -69,6 +69,23 @@ impl StateMachine {
         self.state = state;
     }
 
+    /// Back to IDLE, dropping any deferred decision (used when the
+    /// foreground app is blacklisted mid-sequence).
+    pub fn reset(&mut self) {
+        self.state = State::Idle;
+        self.candidate_key = None;
+    }
+
+    /// Keep the modifier set fresh while events are being bypassed,
+    /// so state is consistent when interception resumes.
+    pub fn track_modifier(&mut self, key: u16, is_down: bool) {
+        if is_down {
+            self.pressed_modifiers.insert(key);
+        } else {
+            self.pressed_modifiers.remove(&key);
+        }
+    }
+
     /// Push a full press of `key`'s mapping (or the key itself if unmapped).
     fn press_mapped(&self, key: u16, actions: &mut Vec<Action>) {
         match self.map.get(&key) {

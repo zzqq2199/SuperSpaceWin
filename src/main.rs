@@ -6,6 +6,7 @@
 
 mod autostart;
 mod config;
+mod foreground;
 mod key_codes;
 mod keyboard;
 mod logger;
@@ -38,6 +39,7 @@ struct App {
     verbose: VerboseConfig,
     tray: Tray,
     about_text: String,
+    blacklist: foreground::BlacklistChecker,
 }
 
 thread_local! {
@@ -58,6 +60,28 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
                 let Some(app) = guard.as_mut() else { return };
 
                 let is_mod = is_modifier_vk(ev.vk);
+
+                // Blacklisted foreground app: pass everything through.
+                if !app.blacklist.is_empty() && app.blacklist.foreground_blacklisted() {
+                    if is_mod {
+                        app.sm.track_modifier(ev.vk, ev.is_down);
+                    }
+                    if app.sm.state != State::Idle {
+                        if app.verbose.on_state {
+                            logger::log(&format!(
+                                "[state] {:?} -> Idle (blacklisted foreground app)",
+                                app.sm.state
+                            ));
+                        }
+                        let was_hyper = app.sm.state == State::HyperMode;
+                        app.sm.reset();
+                        if was_hyper {
+                            app.tray.set_idle();
+                        }
+                    }
+                    return;
+                }
+
                 if app.verbose.on_event {
                     logger::log(&format!(
                         "[event] vk={:#04x} is_down={} is_modifier={}",
@@ -211,6 +235,7 @@ fn main() {
             verbose: cfg.verbose,
             tray,
             about_text,
+            blacklist: foreground::BlacklistChecker::new(cfg.blacklist),
         });
     });
 

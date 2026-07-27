@@ -44,12 +44,16 @@ struct RawConfig {
     verbose: VerboseConfig,
     #[serde(default)]
     hold_as_hyper: bool,
+    #[serde(default)]
+    blacklist: Vec<String>,
 }
 
 pub struct Config {
     pub map: HashMap<u16, Vec<Keys>>,
     pub verbose: VerboseConfig,
     pub hold_as_hyper: bool,
+    /// Foreground process exe names for which Space++ is disabled.
+    pub blacklist: Vec<String>,
     pub path: Option<PathBuf>,
 }
 
@@ -126,6 +130,7 @@ pub fn parse(json: &str) -> Result<(Config, Vec<String>), String> {
             map,
             verbose: raw.verbose,
             hold_as_hyper: raw.hold_as_hyper,
+            blacklist: raw.blacklist,
             path: None,
         },
         warnings,
@@ -155,6 +160,7 @@ pub fn fallback() -> Config {
         map,
         verbose: VerboseConfig::default(),
         hold_as_hyper: true,
+        blacklist: Vec::new(),
         path: None,
     }
 }
@@ -209,6 +215,20 @@ mod tests {
         assert_eq!(b[0].main, 0x24); // home
         assert_eq!(b[0].modifiers, vec![0x10]); // shift
         assert_eq!(b[1].main, 0x08); // backspace
+    }
+
+    #[test]
+    fn parses_blacklist() {
+        let json = r#"{"hyper_keys_map": {}, "blacklist": ["GameApp.exe", "other.exe"]}"#;
+        let (cfg, warnings) = parse(json).unwrap();
+        assert!(warnings.is_empty());
+        assert_eq!(cfg.blacklist, vec!["GameApp.exe", "other.exe"]);
+    }
+
+    #[test]
+    fn blacklist_defaults_to_empty() {
+        let (cfg, _) = parse(r#"{"hyper_keys_map": {}}"#).unwrap();
+        assert!(cfg.blacklist.is_empty());
     }
 
     #[test]
