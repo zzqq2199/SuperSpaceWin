@@ -132,8 +132,17 @@ pub fn parse(json: &str) -> Result<(Config, Vec<String>), String> {
     ))
 }
 
+/// The repository's config.json, embedded at compile time so a single
+/// exe is fully functional without any external file.
+const DEFAULT_CONFIG: &str = include_str!("../config.json");
+
+pub fn embedded_default() -> Config {
+    let (cfg, _) = parse(DEFAULT_CONFIG).expect("embedded config.json must be valid");
+    cfg
+}
+
 /// Minimal fallback (hjkl arrows), mirroring the mac version's behavior
-/// when config.json cannot be loaded.
+/// when a config cannot be parsed at all.
 pub fn fallback() -> Config {
     let mut map = HashMap::new();
     for (name, target) in [("h", "left_arrow"), ("j", "down_arrow"), ("k", "up_arrow"), ("l", "right_arrow")] {
@@ -162,7 +171,10 @@ pub fn load() -> (Config, Vec<String>) {
             },
             Err(e) => (fallback(), vec![format!("config read error: {e}")]),
         },
-        None => (fallback(), vec!["config.json not found, using fallback".into()]),
+        None => (
+            embedded_default(),
+            vec!["config.json not found, using embedded default config".into()],
+        ),
     }
 }
 
@@ -197,6 +209,16 @@ mod tests {
         assert_eq!(b[0].main, 0x24); // home
         assert_eq!(b[0].modifiers, vec![0x10]); // shift
         assert_eq!(b[1].main, 0x08); // backspace
+    }
+
+    #[test]
+    fn embedded_default_config_is_complete() {
+        let cfg = embedded_default();
+        assert!(cfg.hold_as_hyper);
+        // Full mapping, not the minimal hjkl fallback.
+        assert!(cfg.map.len() > 20, "got {}", cfg.map.len());
+        assert!(cfg.map.contains_key(&(b'Q' as u16))); // exit
+        assert!(cfg.map.contains_key(&(b'C' as u16))); // Ctrl+C
     }
 
     #[test]

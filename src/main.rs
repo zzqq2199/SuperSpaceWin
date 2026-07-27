@@ -164,7 +164,7 @@ fn main() {
         .path
         .as_ref()
         .map(|p| p.display().to_string())
-        .unwrap_or_else(|| "(内置 fallback 映射)".to_string());
+        .unwrap_or_else(|| "(内置默认配置)".to_string());
     logger::log(&format!("[SpacePP] start, config: {config_desc}"));
 
     // Hidden window that owns the tray icon.
