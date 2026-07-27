@@ -1,9 +1,15 @@
 # Space++ for Windows
 
-[![Build & Release](https://github.com/zzqq2199/SuperSpaceWin/actions/workflows/release.yml/badge.svg)](https://github.com/zzqq2199/SuperSpaceWin/actions/workflows/release.yml)
-[![Release](https://img.shields.io/github/v/release/zzqq2199/SuperSpaceWin?display_name=tag&sort=semver)](https://github.com/zzqq2199/SuperSpaceWin/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Platform: Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6?logo=windows)
+<p align="center">
+  <img src="docs/assets/hero.png" alt="Space++ — 空格键变成强大的 Hyper 键" width="720">
+</p>
+
+<p align="center">
+  <a href="https://github.com/zzqq2199/SuperSpaceWin/actions/workflows/release.yml"><img src="https://github.com/zzqq2199/SuperSpaceWin/actions/workflows/release.yml/badge.svg" alt="Build & Release"></a>
+  <a href="https://github.com/zzqq2199/SuperSpaceWin/releases"><img src="https://img.shields.io/github/v/release/zzqq2199/SuperSpaceWin?display_name=tag&sort=semver" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6?logo=windows" alt="Platform: Windows">
+</p>
 
 **双手不离主键盘区，把空格键变成 Hyper 键。**
 
