@@ -50,6 +50,9 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "release_needed=$releaseNeeded" >> $env:GITHUB_OUTPUT
+          # git ls-remote exits 2 when the tag is missing (the expected
+          # "release needed" case); don't let that fail the step.
+          exit 0
 
       - name: Package zip
         shell: pwsh
