@@ -52,21 +52,18 @@ pub struct Config {
     pub map: HashMap<u16, Vec<Keys>>,
     pub verbose: VerboseConfig,
     pub hold_as_hyper: bool,
-    /// Foreground process exe names for which Super++ is disabled.
+    /// Foreground process exe names for which Space++ is disabled.
     pub blacklist: Vec<String>,
     pub path: Option<PathBuf>,
 }
 
-/// Same lookup order as the mac version: SUPERPP_CONFIG (or legacy
-/// SPACEPP_CONFIG) env var, then config.json next to the executable,
-/// then the current directory.
+/// Same lookup order as the mac version: SPACEPP_CONFIG env var,
+/// then config.json next to the executable, then the current directory.
 pub fn resolve_path() -> Option<PathBuf> {
-    for key in ["SUPERPP_CONFIG", "SPACEPP_CONFIG"] {
-        if let Ok(p) = env::var(key) {
-            let p = PathBuf::from(p);
-            if p.exists() {
-                return Some(p);
-            }
+    if let Ok(p) = env::var("SPACEPP_CONFIG") {
+        let p = PathBuf::from(p);
+        if p.exists() {
+            return Some(p);
         }
     }
     if let Ok(exe) = env::current_exe() {

@@ -1,5 +1,5 @@
-//! Super++ for Windows: the space bar becomes a Hyper key.
-//! Port of the macOS original; the state machine is in
+//! Space++ for Windows: the space bar becomes a Hyper key.
+//! Port of the macOS version (SuperSpace); the state machine is in
 //! `state_machine.rs`, this file wires it to the OS (hook, tray, config).
 
 #![cfg_attr(not(test), windows_subsystem = "windows")]
@@ -166,7 +166,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                                 .map(|a| a.about_text.clone())
                                 .unwrap_or_default()
                         });
-                        let title = wide("关于 Super++");
+                        let title = wide("关于 Space++ (Win)");
                         let body = wide(&text);
                         MessageBoxW(hwnd, body.as_ptr(), title.as_ptr(), MB_OK | MB_ICONINFORMATION);
                     }
@@ -203,7 +203,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
 }
 
 fn error_box(text: &str) {
-    let title = wide("Super++");
+    let title = wide("Space++ (Win)");
     let body = wide(text);
     unsafe {
         MessageBoxW(std::ptr::null_mut(), body.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR);
@@ -214,11 +214,11 @@ fn main() {
     logger::init();
 
     // Single instance.
-    let mutex_name = wide("SuperPP_Win_SingleInstance");
+    let mutex_name = wide("SpacePP_Win_SingleInstance");
     unsafe {
         CreateMutexW(std::ptr::null(), 0, mutex_name.as_ptr());
         if GetLastError() == ERROR_ALREADY_EXISTS {
-            error_box("Super++ 已在运行。");
+            error_box("Space++ 已在运行。");
             return;
         }
     }
@@ -232,11 +232,11 @@ fn main() {
         .as_ref()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "(内置默认配置)".to_string());
-    logger::log(&format!("[Super++] start, config: {config_desc}"));
+    logger::log(&format!("[SpacePP] start, config: {config_desc}"));
 
     // Hidden window that owns the tray icon.
     let hinstance = unsafe { GetModuleHandleW(std::ptr::null()) };
-    let class_name = wide("SuperPPWnd");
+    let class_name = wide("SpacePPWnd");
     let mut wc: WNDCLASSW = unsafe { std::mem::zeroed() };
     wc.lpfnWndProc = Some(wnd_proc);
     wc.hInstance = hinstance;
@@ -245,7 +245,7 @@ fn main() {
         error_box("窗口类注册失败。");
         return;
     }
-    let title = wide("Super++");
+    let title = wide("Space++");
     let hwnd = unsafe {
         CreateWindowExW(
             0,
@@ -267,9 +267,9 @@ fn main() {
         return;
     }
 
-    let tray = Tray::new(hwnd, &format!("Super++ {VERSION} - 正在运行"));
+    let tray = Tray::new(hwnd, &format!("Space++ {VERSION} - 正在运行"));
     let about_text = format!(
-        "Super++ 版本 {VERSION}\n\n将空格键变成 Hyper 键的键盘效率工具。\n\n配置文件：{config_desc}\n日志：%TEMP%\\superpp.log\n\n© 2026 Quan Zhou"
+        "Space++ (Win) 版本 {VERSION}\n\n将空格键变成 Hyper 键的键盘效率工具。\n\n配置文件：{config_desc}\n日志：%TEMP%\\spacepp.log\n\n© 2026 Quan Zhou"
     );
 
     APP.with(|cell| {
@@ -296,7 +296,7 @@ fn main() {
         });
         return;
     }
-    logger::log("[Super++] keyboard hook ready");
+    logger::log("[SpacePP] keyboard hook ready");
     lock_guard::enable();
 
     let mut msg: MSG = unsafe { std::mem::zeroed() };
@@ -317,5 +317,5 @@ fn main() {
             app.tray.remove();
         }
     });
-    logger::log("[Super++] exit");
+    logger::log("[SpacePP] exit");
 }

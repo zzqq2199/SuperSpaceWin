@@ -2,9 +2,9 @@
 //!
 //! winlogon matches Win+L on raw input, before low-level hook suppression
 //! applies, so a physical Win+L cannot be blocked from user mode. Instead,
-//! while Super++ runs, the DisableLockWorkstation policy is enabled so the
+//! while Space++ runs, the DisableLockWorkstation policy is enabled so the
 //! OS ignores Win+L entirely; an intentional bare Win+L (Win held in IDLE)
-//! is detected by the hook and Super++ locks the workstation itself by
+//! is detected by the hook and Space++ locks the workstation itself by
 //! briefly lifting the policy around a LockWorkStation() call. The policy
 //! is re-enabled when the session unlocks.
 
@@ -70,7 +70,7 @@ fn set_lock_disabled(disabled: bool) -> bool {
     status == 0 || (!disabled && status == 2)
 }
 
-/// Called on startup: OS-level Win+L off while Super++ runs.
+/// Called on startup: OS-level Win+L off while Space++ runs.
 pub fn enable() {
     if set_lock_disabled(true) {
         logger::log("[lock_guard] Win+L policy guard enabled");

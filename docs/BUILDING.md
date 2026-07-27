@@ -1,6 +1,6 @@
 # Building & Releasing
 
-Developer notes for Super++ (Windows). End users don't need any of this —
+Developer notes for Space++ (Windows). End users don't need any of this —
 grab a prebuilt exe from the [Releases](https://github.com/zzqq2199/SuperSpaceWin/releases) page.
 
 ## Prerequisites
@@ -12,7 +12,7 @@ grab a prebuilt exe from the [Releases](https://github.com/zzqq2199/SuperSpaceWi
 
 ```powershell
 cargo build --release
-.\target\release\superpp-win.exe
+.\target\release\spacepp-win.exe
 ```
 
 The result is a single static exe (~340 KB) with no runtime dependencies.
@@ -34,10 +34,10 @@ cargo test
 
 ```powershell
 .\scripts\publish.ps1
-.\publish\superpp-win.exe
+.\publish\spacepp-win.exe
 ```
 
-It builds the release exe, copies it to `publish\superpp-win.exe`, and creates
+It builds the release exe, copies it to `publish\spacepp-win.exe`, and creates
 `publish\config.json` as a **relative symlink** to the repo-root `config.json`
 (so editing the repo config takes effect immediately after a restart).
 
@@ -49,14 +49,14 @@ Notes:
   After cloning, run `git config core.symlinks true` so the link checks out
   correctly.
 - If the published exe is running (and therefore locked), the script renames it
-  to `superpp-win.exe.old` and writes the fresh build alongside; restart the app
+  to `spacepp-win.exe.old` and writes the fresh build alongside; restart the app
   to pick it up.
 
 ## Configuration resolution order
 
 At startup the config is resolved in this order:
 
-1. `SUPERPP_CONFIG` environment variable (if it points to an existing file)
+1. `SPACEPP_CONFIG` environment variable (if it points to an existing file)
 2. `config.json` next to the executable
 3. `config.json` in the current working directory
 4. the embedded default (full mapping) if none of the above exist
@@ -64,7 +64,7 @@ At startup the config is resolved in this order:
 ## Logging
 
 When any `verbose` flag is enabled in `config.json`, logs are appended to
-`%TEMP%\superpp.log`. With verbose off, only lifecycle lines (start, hook
+`%TEMP%\spacepp.log`. With verbose off, only lifecycle lines (start, hook
 ready, exit) are written. See the privacy note below.
 
 > **Privacy:** `verbose.on_event` records every physical key code — treat it as

@@ -1,8 +1,8 @@
 [package]
-name = "superpp-win"
-version = "1.1.0"
+name = "spacepp-win"
+version = "1.0.0"
 edition = "2021"
-description = "Super++ for Windows: turn the space bar into a Hyper key"
+description = "Space++ for Windows: turn the space bar into a Hyper key"
 authors = ["Quan Zhou"]
 
 [dependencies]

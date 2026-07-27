@@ -8,7 +8,7 @@ use windows_sys::Win32::System::Registry::{
 use crate::tray::wide;
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
-const VALUE_NAME: &str = "Super++";
+const VALUE_NAME: &str = "SpacePP";
 
 fn open_run_key(access: u32) -> Option<HKEY> {
     let subkey = wide(RUN_KEY);
