@@ -37,5 +37,6 @@
         "on_event": false,
         "on_action": false
     },
-    "hold_as_hyper": true
+    "hold_as_hyper": true,
+    "hyper_with_modifiers": true
 }

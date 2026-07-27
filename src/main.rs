@@ -231,7 +231,7 @@ fn main() {
 
     APP.with(|cell| {
         *cell.borrow_mut() = Some(App {
-            sm: StateMachine::new(cfg.map, cfg.hold_as_hyper),
+            sm: StateMachine::new(cfg.map, cfg.hold_as_hyper, cfg.hyper_with_modifiers),
             verbose: cfg.verbose,
             tray,
             about_text,

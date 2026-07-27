@@ -44,14 +44,22 @@ struct RawConfig {
     verbose: VerboseConfig,
     #[serde(default)]
     hold_as_hyper: bool,
+    #[serde(default = "default_true")]
+    hyper_with_modifiers: bool,
     #[serde(default)]
     blacklist: Vec<String>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 pub struct Config {
     pub map: HashMap<u16, Vec<Keys>>,
     pub verbose: VerboseConfig,
     pub hold_as_hyper: bool,
+    /// Space starts the hyper flow even while modifiers are held.
+    pub hyper_with_modifiers: bool,
     /// Foreground process exe names for which Space++ is disabled.
     pub blacklist: Vec<String>,
     pub path: Option<PathBuf>,
@@ -130,6 +138,7 @@ pub fn parse(json: &str) -> Result<(Config, Vec<String>), String> {
             map,
             verbose: raw.verbose,
             hold_as_hyper: raw.hold_as_hyper,
+            hyper_with_modifiers: raw.hyper_with_modifiers,
             blacklist: raw.blacklist,
             path: None,
         },
@@ -160,6 +169,7 @@ pub fn fallback() -> Config {
         map,
         verbose: VerboseConfig::default(),
         hold_as_hyper: true,
+        hyper_with_modifiers: true,
         blacklist: Vec::new(),
         path: None,
     }

@@ -75,6 +75,15 @@ cargo test
 "b": [{"key": "home", "modifiers": ["shift"]}, {"key": "delete"}]
 ```
 
+### Win+L 锁屏防护
+
+`Win+L` 由 winlogon 在系统层处理，键盘钩子无法拦截。为了让 `space+Win+L`（移动窗口）不误触锁屏：
+
+- Hyper 流程中按下的物理 Win 键会被吞掉（OS 看不到 Win 按下，就无法匹配 Win+L），注入映射键时把 Win 显式合成进组合（`space+Win+L` 实际注入干净的 `Win+→`）；Win 被吞期间未映射的键也会合成注入以保持 `Win+键` 语义
+- `hyper_with_modifiers`（默认 `true`）：按住修饰键时空格仍进入 hyper 流程，堵住"先按 Win 再按空格"时整体透传的路径；轻敲空格会在弹起时补发（`Win+Space` 切输入法等仍可用）
+
+注意：如果先按 Win 再按空格，OS 已经看到 Win 按下，此时按 L 仍可能锁屏——习惯上先按空格再按 Win 即可完全避免。单独使用 Win（开始菜单、Win+L 锁屏）不受任何影响。
+
 ### 黑名单
 
 前台窗口属于指定进程时 Space++ 完全透传（空格就是空格），适合游戏等需要原始按键的场景。进程名不区分大小写：
