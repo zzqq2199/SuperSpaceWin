@@ -63,6 +63,10 @@ cargo build --release
 cargo test
 ```
 
+## GitHub 自动构建与发布
+
+`.github/workflows/release.yml` 在推送 `main` 后自动：跑测试 → 构建 release exe → 打包 zip（exe + config.json + README）上传 Actions Artifact；如果 `Cargo.toml` 中的版本尚无对应 `v<版本>` 标签，则创建 GitHub Release 并上传 zip。同一版本号再次推送只更新 Artifact，不重复发 Release。发新版前更新 `Cargo.toml` 的 `version` 即可。
+
 ## 配置格式
 
 与 mac 版相同的 JSON 结构和键名（`command` 自动翻译为 Ctrl，`option` 为 Alt，`delete` 表示 Backspace）。此外映射值支持数组表示按键序列：

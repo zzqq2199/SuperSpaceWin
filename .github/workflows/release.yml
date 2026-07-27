@@ -1,0 +1,80 @@
+name: Build and release Space++ (Win)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: spacepp-win-main-release
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --locked
+
+      - name: Build release exe
+        run: cargo build --release --locked
+
+      - name: Read release version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (cargo metadata --format-version 1 --no-deps | ConvertFrom-Json).packages[0].version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            Write-Error "Invalid release version: $version"
+            exit 1
+          }
+
+          $tag = "v$version"
+          git ls-remote --exit-code --tags origin "refs/tags/$tag" 2>$null
+          $releaseNeeded = if ($LASTEXITCODE -eq 0) { 'false' } else { 'true' }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "release_needed=$releaseNeeded" >> $env:GITHUB_OUTPUT
+
+      - name: Package zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item target\release\spacepp-win.exe dist\
+          Copy-Item config.json dist\
+          Copy-Item README.md dist\
+          Compress-Archive -Path dist\spacepp-win.exe, dist\config.json, dist\README.md `
+            -DestinationPath "dist\SpacePP-${{ steps.version.outputs.version }}-windows-x86_64.zip"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpacePP-${{ steps.version.outputs.version }}-${{ github.sha }}
+          path: dist/SpacePP-${{ steps.version.outputs.version }}-windows-x86_64.zip
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.release_needed == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: SpacePP-Win ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: dist/SpacePP-${{ steps.version.outputs.version }}-windows-x86_64.zip
