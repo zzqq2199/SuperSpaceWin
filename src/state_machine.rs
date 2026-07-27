@@ -52,9 +52,6 @@ pub struct Output {
 pub struct StateMachine {
     pub state: State,
     pub hold_as_hyper: bool,
-    /// When true, space still starts the hyper flow while modifiers are
-    /// physically held (closes the Win-first passthrough path to Win+L).
-    pub hyper_with_modifiers: bool,
     candidate_key: Option<u16>,
     map: HashMap<u16, Vec<Keys>>,
     pressed_modifiers: HashSet<u16>,
@@ -66,15 +63,10 @@ pub struct StateMachine {
 }
 
 impl StateMachine {
-    pub fn new(
-        map: HashMap<u16, Vec<Keys>>,
-        hold_as_hyper: bool,
-        hyper_with_modifiers: bool,
-    ) -> Self {
+    pub fn new(map: HashMap<u16, Vec<Keys>>, hold_as_hyper: bool) -> Self {
         StateMachine {
             state: State::Idle,
             hold_as_hyper,
-            hyper_with_modifiers,
             candidate_key: None,
             map,
             pressed_modifiers: HashSet::new(),
@@ -177,10 +169,11 @@ impl StateMachine {
 
         let pass_through = match self.state {
             State::Idle => {
-                if key == VK_SPACE
-                    && is_down
-                    && (self.pressed_modifiers.is_empty() || self.hyper_with_modifiers)
-                {
+                // Hyper only engages when space is pressed first: with any
+                // modifier already held, everything stays native.
+                if !self.pressed_modifiers.is_empty() {
+                    true
+                } else if key == VK_SPACE && is_down {
                     self.set_state(State::OnlySpaceDown);
                     false
                 } else {
@@ -306,12 +299,7 @@ mod tests {
     }
 
     fn sm() -> StateMachine {
-        StateMachine::new(test_map(), true, true)
-    }
-
-    fn sm_legacy() -> StateMachine {
-        // hyper_with_modifiers = false: mac-parity modifier bypass
-        StateMachine::new(test_map(), true, false)
+        StateMachine::new(test_map(), true)
     }
 
     #[test]
@@ -440,7 +428,7 @@ mod tests {
 
     #[test]
     fn modifier_held_in_idle_passes_everything() {
-        let mut m = sm_legacy();
+        let mut m = sm();
         assert!(m.handle_key_event(VK_LSHIFT, true, true).pass_through);
         // Space while Shift held must not be intercepted.
         let o = m.handle_key_event(VK_SPACE, true, false);
@@ -498,25 +486,20 @@ mod tests {
     }
 
     #[test]
-    fn win_pressed_before_space_is_not_suppressed() {
+    fn win_pressed_before_space_disables_hyper() {
         let mut m = sm();
         // Win down in IDLE stays native (Start menu, Win+L all work).
         assert!(m.handle_key_event(VK_LWIN, true, true).pass_through);
 
-        // hyper_with_modifiers: space is still swallowed.
-        assert!(!m.handle_key_event(VK_SPACE, true, false).pass_through);
-        assert_eq!(m.state, State::OnlySpaceDown);
-
-        // space+h chord: h suppressed, Left injected plain (the OS-held
-        // physical Win combines with it at the OS level).
-        m.handle_key_event(VK_H, true, false);
-        let o = m.handle_key_event(VK_H, false, false);
-        assert!(!o.pass_through);
-        assert_eq!(o.actions, vec![Action::Press(Keys::plain(VK_LEFT))]);
+        // Hyper only engages when space comes first: everything passes.
+        assert!(m.handle_key_event(VK_SPACE, true, false).pass_through);
+        assert_eq!(m.state, State::Idle);
+        assert!(m.handle_key_event(VK_H, true, false).pass_through);
 
         // The OS saw this Win go down, so its release must pass through.
         let o_up = m.handle_key_event(VK_LWIN, false, true);
         assert!(o_up.pass_through);
+        assert_eq!(m.state, State::Idle);
     }
 
     #[test]
@@ -524,18 +507,6 @@ mod tests {
         let mut m = sm();
         assert!(m.handle_key_event(VK_LWIN, true, true).pass_through);
         assert!(m.handle_key_event(VK_LWIN, false, true).pass_through);
-        assert_eq!(m.state, State::Idle);
-    }
-
-    #[test]
-    fn hyper_with_modifiers_swallows_and_replays_space() {
-        let mut m = sm();
-        m.handle_key_event(VK_LSHIFT, true, true);
-        // Space swallowed despite Shift held...
-        assert!(!m.handle_key_event(VK_SPACE, true, false).pass_through);
-        // ...and replayed on release (physical Shift combines at OS level).
-        let o = m.handle_key_event(VK_SPACE, false, false);
-        assert_eq!(o.actions, vec![Action::Press(Keys::plain(VK_SPACE))]);
         assert_eq!(m.state, State::Idle);
     }
 
