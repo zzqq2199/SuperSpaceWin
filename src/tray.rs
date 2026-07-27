@@ -187,7 +187,7 @@ pub fn show_menu(hwnd: HWND, autostart_enabled: bool) -> usize {
         if menu.is_null() {
             return 0;
         }
-        let about = wide("关于 Space++ (Win)");
+        let about = wide("关于 Super++");
         let autostart = wide("开机自启");
         let exit = wide("退出");
         AppendMenuW(menu, MF_STRING, MENU_ABOUT, about.as_ptr());

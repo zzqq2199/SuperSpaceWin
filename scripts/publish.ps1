@@ -1,5 +1,5 @@
 # Build the release exe and assemble the publish/ folder:
-#   publish\spacepp-win.exe   (copied, git-ignored)
+#   publish\superpp-win.exe   (copied, git-ignored)
 #   publish\config.json       (relative symlink -> ..\config.json, git-tracked)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -11,13 +11,15 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 New-Item -ItemType Directory -Force -Path publish | Out-Null
 # If the published exe is running it is locked, but Windows still allows
 # renaming it. Move it aside, then clean up the leftover on a later run.
+Remove-Item publish\superpp-win.exe.old -Force -ErrorAction SilentlyContinue
 Remove-Item publish\spacepp-win.exe.old -Force -ErrorAction SilentlyContinue
 try {
-    Copy-Item target\release\spacepp-win.exe publish\spacepp-win.exe -Force
+    Copy-Item target\release\superpp-win.exe publish\superpp-win.exe -Force
 } catch [System.IO.IOException] {
-    Move-Item publish\spacepp-win.exe publish\spacepp-win.exe.old -Force
-    Copy-Item target\release\spacepp-win.exe publish\spacepp-win.exe -Force
-    Write-Host "Note: old exe was running; renamed to spacepp-win.exe.old (restart the app to use the new build)."
+    Move-Item publish\superpp-win.exe publish\superpp-win.exe.old -Force -ErrorAction SilentlyContinue
+    Move-Item publish\spacepp-win.exe publish\spacepp-win.exe.old -Force -ErrorAction SilentlyContinue
+    Copy-Item target\release\superpp-win.exe publish\superpp-win.exe -Force
+    Write-Host "Note: old exe was running; renamed aside (restart the app to use the new build)."
 }
 
 $link = Join-Path $root "publish\config.json"

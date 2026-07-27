@@ -1,7 +1,7 @@
-# Space++ for Windows
+# Super++ for Windows
 
 <p align="center">
-  <img src="docs/assets/hero.png" alt="Space++ — the space bar becomes a powerful Hyper key" width="720">
+  <img src="docs/assets/hero.png" alt="Super++ — the space bar becomes a powerful Hyper key" width="720">
 </p>
 
 <p align="center">
@@ -13,7 +13,7 @@
 
 **Keep your hands on the home row. Turn the space bar into a Hyper key.**
 
-Space++ lets you hold <kbd>Space</kbd> and use the keys already under your
+Super++ lets you hold <kbd>Space</kbd> and use the keys already under your
 fingers for arrows, page navigation, word/line deletion, copy/paste, and
 function keys — no reaching for the arrow cluster, <kbd>Home</kbd>/<kbd>End</kbd>,
 or the <kbd>F</kbd> row. Tap <kbd>Space</kbd> and it's still just a space.
@@ -28,7 +28,7 @@ The arrow keys, <kbd>Home</kbd>/<kbd>End</kbd>, <kbd>Page Up/Down</kbd>, and
 <kbd>Delete</kbd> are all far from the home row. Every trip there breaks your
 flow and slows you down.
 
-Space++ solves this by overloading the one key your thumbs already rest on:
+Super++ solves this by overloading the one key your thumbs already rest on:
 
 - **No home-row exits** — move the caret, jump lines, page through documents,
   and delete by word or line without moving your hands.
@@ -42,9 +42,9 @@ Space++ solves this by overloading the one key your thumbs already rest on:
 
 ## Quick start
 
-1. Download `SpacePP-<version>-windows-x86_64.zip` from the
+1. Download `SuperPP-<version>-windows-x86_64.zip` from the
    [Releases](https://github.com/zzqq2199/SuperSpaceWin/releases) page.
-2. Unzip and run `spacepp-win.exe`.
+2. Unzip and run `superpp-win.exe`.
 3. A tray icon appears (gray = idle, orange = Hyper active). That's it — start
    holding <kbd>Space</kbd>.
 
@@ -72,7 +72,7 @@ customizable in `config.json`.
 | <kbd>Space</kbd>+<kbd>/</kbd> | Delete to line end | Shift+End, Delete |
 | <kbd>Space</kbd>+<kbd>C</kbd> / <kbd>V</kbd> | Copy / paste | Ctrl+C / Ctrl+V |
 | <kbd>Space</kbd>+<kbd>1</kbd>…<kbd>0</kbd> <kbd>-</kbd> <kbd>=</kbd> | Function keys | F1…F12 |
-| <kbd>Space</kbd>+<kbd>Q</kbd> | Quit Space++ | — |
+| <kbd>Space</kbd>+<kbd>Q</kbd> | Quit Super++ | — |
 
 Holding <kbd>Space</kbd> by itself enters Hyper mode (`hold_as_hyper: true`); a
 quick tap still types a space.
@@ -80,7 +80,7 @@ quick tap still types a space.
 ## How it works
 
 The hard part is telling "typing a space" apart from "using Space as a
-modifier", without adding lag. Space++ defers the decision through a small
+modifier", without adding lag. Super++ defers the decision through a small
 state machine (identical to the macOS version):
 
 ```mermaid
@@ -103,8 +103,8 @@ selects text.
 
 ## Configuration
 
-Space++ runs on the embedded default config. To customize, place a `config.json`
-next to the exe (or point `SPACEPP_CONFIG` at one). It uses the same JSON shape
+Super++ runs on the embedded default config. To customize, place a `config.json`
+next to the exe (or point `SUPERPP_CONFIG` at one). It uses the same JSON shape
 and key names as the macOS version — `command` is translated to Ctrl, `option`
 to Alt, and `delete` means Backspace. A mapping value may also be an **array**
 to express a key sequence:
@@ -115,7 +115,7 @@ to express a key sequence:
 
 ### Blacklist — pass through for specific apps
 
-When the foreground window belongs to a listed process, Space++ gets out of the
+When the foreground window belongs to a listed process, Super++ gets out of the
 way entirely (a space is just a space). Handy for games that need raw keys.
 Process names are case-insensitive:
 
@@ -132,7 +132,7 @@ Moving windows with <kbd>Space</kbd>+<kbd>Win</kbd>+<kbd>H</kbd>/<kbd>J</kbd>/<k
 is a natural gesture, but <kbd>Win</kbd>+<kbd>L</kbd> would normally lock your
 PC. `Win+L` is matched by winlogon on raw input, *before* a keyboard hook can
 suppress it — so it can't be blocked from user space (PowerToys can't remap it
-either). Space++ handles this with a policy guard instead:
+either). Super++ handles this with a policy guard instead:
 
 - While running, it sets `DisableLockWorkstation` for the current user, so the
   OS ignores <kbd>Win</kbd>+<kbd>L</kbd> and `Space+Win+L` safely moves the
@@ -141,8 +141,8 @@ either). Space++ handles this with a policy guard instead:
   locks via `LockWorkStation()`; the guard is re-armed after you unlock.
 - On clean exit, the registry value is removed and native behavior is restored.
 
-> If Space++ is force-killed instead of exiting cleanly, the policy value can
-> linger and <kbd>Win</kbd>+<kbd>L</kbd> stays disabled. Run Space++ once more
+> If Super++ is force-killed instead of exiting cleanly, the policy value can
+> linger and <kbd>Win</kbd>+<kbd>L</kbd> stays disabled. Run Super++ once more
 > and exit it normally to restore. While the guard is active, the "Lock" entry
 > in the Start menu is also hidden by this Windows policy.
 
@@ -152,8 +152,8 @@ either). Space++ handles this with a policy guard instead:
 | --- | --- | --- |
 | `hyper_keys_map` | object | Source key → target chord (or array of chords) |
 | `hold_as_hyper` | bool | Holding Space alone enters Hyper mode |
-| `blacklist` | string[] | Foreground process names where Space++ is disabled |
-| `verbose.on_state` / `on_event` / `on_action` | bool | Debug logging to `%TEMP%\spacepp.log` |
+| `blacklist` | string[] | Foreground process names where Super++ is disabled |
+| `verbose.on_state` / `on_event` / `on_action` | bool | Debug logging to `%TEMP%\superpp.log` |
 
 ## Building
 

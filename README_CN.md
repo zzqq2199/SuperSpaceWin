@@ -1,7 +1,7 @@
-# Space++ for Windows
+# Super++ for Windows
 
 <p align="center">
-  <img src="docs/assets/hero.png" alt="Space++ — 空格键变成强大的 Hyper 键" width="720">
+  <img src="docs/assets/hero.png" alt="Super++ — 空格键变成强大的 Hyper 键" width="720">
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@
 
 方向键、<kbd>Home</kbd>/<kbd>End</kbd>、<kbd>Page Up/Down</kbd>、<kbd>Delete</kbd> 都远离主键盘区，每次伸手都会打断手感、拖慢速度。
 
-Space++ 把这些操作叠加到大拇指本来就搁着的那一个键上：
+Super++ 把这些操作叠加到大拇指本来就搁着的那一个键上：
 
 - **不用离开主键盘区**——移动光标、跳行、翻页、按词/按行删除，双手保持不动。
 - **对打字零影响**——普通空格照旧，只有在按住 <kbd>Space</kbd> 时才激活 Hyper 层。
@@ -32,8 +32,8 @@ Space++ 把这些操作叠加到大拇指本来就搁着的那一个键上：
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/zzqq2199/SuperSpaceWin/releases) 页下载 `SpacePP-<版本>-windows-x86_64.zip`。
-2. 解压，运行 `spacepp-win.exe`。
+1. 从 [Releases](https://github.com/zzqq2199/SuperSpaceWin/releases) 页下载 `SuperPP-<版本>-windows-x86_64.zip`。
+2. 解压，运行 `superpp-win.exe`。
 3. 托盘出现图标（灰色=空闲，橙色=Hyper 激活）。开始按住 <kbd>Space</kbd> 即可。
 
 右键托盘图标可开关 **开机自启** 和 **退出**。用键盘退出：<kbd>Space</kbd>+<kbd>Q</kbd>。
@@ -58,13 +58,13 @@ Space++ 把这些操作叠加到大拇指本来就搁着的那一个键上：
 | <kbd>Space</kbd>+<kbd>/</kbd> | 删除到行尾 | Shift+End, Delete |
 | <kbd>Space</kbd>+<kbd>C</kbd> / <kbd>V</kbd> | 复制 / 粘贴 | Ctrl+C / Ctrl+V |
 | <kbd>Space</kbd>+<kbd>1</kbd>…<kbd>0</kbd> <kbd>-</kbd> <kbd>=</kbd> | 功能键 | F1…F12 |
-| <kbd>Space</kbd>+<kbd>Q</kbd> | 退出 Space++ | — |
+| <kbd>Space</kbd>+<kbd>Q</kbd> | 退出 Super++ | — |
 
 单独长按 <kbd>Space</kbd> 会进入 Hyper 模式（`hold_as_hyper: true`）；快速轻敲仍然输出空格。
 
 ## 工作原理
 
-难点在于既要分辨"打空格"和"把空格当修饰键用"，又不能带来延迟。Space++ 通过一个小状态机延迟决策（与 macOS 版完全一致）：
+难点在于既要分辨"打空格"和"把空格当修饰键用"，又不能带来延迟。Super++ 通过一个小状态机延迟决策（与 macOS 版完全一致）：
 
 ```mermaid
 stateDiagram-v2
@@ -82,7 +82,7 @@ stateDiagram-v2
 
 ## 配置
 
-Space++ 默认使用内嵌配置。要自定义，把 `config.json` 放在 exe 同目录（或用环境变量 `SPACEPP_CONFIG` 指定）。JSON 结构和键名与 macOS 版一致——`command` 翻译为 Ctrl，`option` 为 Alt，`delete` 表示 Backspace。映射值也可以是**数组**，表示按键序列：
+Super++ 默认使用内嵌配置。要自定义，把 `config.json` 放在 exe 同目录（或用环境变量 `SUPERPP_CONFIG` 指定）。JSON 结构和键名与 macOS 版一致——`command` 翻译为 Ctrl，`option` 为 Alt，`delete` 表示 Backspace。映射值也可以是**数组**，表示按键序列：
 
 ```json
 "b": [{"key": "home", "modifiers": ["shift"]}, {"key": "delete"}]
@@ -90,7 +90,7 @@ Space++ 默认使用内嵌配置。要自定义，把 `config.json` 放在 exe �
 
 ### 黑名单——对特定程序透传
 
-当前台窗口属于列表中的进程时，Space++ 完全让路（空格就是空格），适合需要原始按键的游戏。进程名不区分大小写：
+当前台窗口属于列表中的进程时，Super++ 完全让路（空格就是空格），适合需要原始按键的游戏。进程名不区分大小写：
 
 ```json
 "blacklist": ["GameApp.exe", "AnotherGame.exe"]
@@ -100,13 +100,13 @@ Space++ 默认使用内嵌配置。要自定义，把 `config.json` 放在 exe �
 
 ### Win+L 锁屏防护
 
-用 <kbd>Space</kbd>+<kbd>Win</kbd>+<kbd>H</kbd>/<kbd>J</kbd>/<kbd>K</kbd>/<kbd>L</kbd> 移动窗口很顺手，但 <kbd>Win</kbd>+<kbd>L</kbd> 会锁屏。`Win+L` 由 winlogon 在低级钩子拦截**之前**基于原始输入匹配，用户态程序无法阻止（PowerToys 同样无法重映射）。Space++ 改用策略防护：
+用 <kbd>Space</kbd>+<kbd>Win</kbd>+<kbd>H</kbd>/<kbd>J</kbd>/<kbd>K</kbd>/<kbd>L</kbd> 移动窗口很顺手，但 <kbd>Win</kbd>+<kbd>L</kbd> 会锁屏。`Win+L` 由 winlogon 在低级钩子拦截**之前**基于原始输入匹配，用户态程序无法阻止（PowerToys 同样无法重映射）。Super++ 改用策略防护：
 
 - 运行期间为当前用户设置 `DisableLockWorkstation`，系统级 <kbd>Win</kbd>+<kbd>L</kbd> 失效，`Space+Win+L` 安全地移动窗口。
 - **主动锁屏仍保留**：检测到裸 <kbd>Win</kbd>+<kbd>L</kbd> 时通过 `LockWorkStation()` 代理锁屏，解锁后自动恢复策略。
 - 正常退出时删除该注册表值，系统行为完全还原。
 
-> 若 Space++ 被强杀（未正常退出），该策略值可能残留、<kbd>Win</kbd>+<kbd>L</kbd> 保持禁用。重新运行一次并正常退出即可恢复。策略生效期间，开始菜单里的"锁定"入口也会被该 Windows 策略隐藏。
+> 若 Super++ 被强杀（未正常退出），该策略值可能残留、<kbd>Win</kbd>+<kbd>L</kbd> 保持禁用。重新运行一次并正常退出即可恢复。策略生效期间，开始菜单里的"锁定"入口也会被该 Windows 策略隐藏。
 
 ## 配置项参考
 
@@ -114,8 +114,8 @@ Space++ 默认使用内嵌配置。要自定义，把 `config.json` 放在 exe �
 | --- | --- | --- |
 | `hyper_keys_map` | object | 源键 → 目标组合（或组合数组） |
 | `hold_as_hyper` | bool | 单独长按空格进入 Hyper 模式 |
-| `blacklist` | string[] | 禁用 Space++ 的前台进程名 |
-| `verbose.on_state` / `on_event` / `on_action` | bool | 调试日志，写入 `%TEMP%\spacepp.log` |
+| `blacklist` | string[] | 禁用 Super++ 的前台进程名 |
+| `verbose.on_state` / `on_event` / `on_action` | bool | 调试日志，写入 `%TEMP%\superpp.log` |
 
 ## 构建
 
