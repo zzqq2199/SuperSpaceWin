@@ -55,13 +55,11 @@ pub struct StateMachine {
     candidate_key: Option<u16>,
     map: HashMap<u16, Vec<Keys>>,
     pressed_modifiers: HashSet<u16>,
-    /// Win keys pressed during a hyper flow. Their physical events are
-    /// suppressed (winlogon must never see Win down, or a later L would
-    /// lock the workstation - Win+L cannot be blocked by hooks). The
-    /// suppressed Win is merged into every injected chord instead.
-    suppressed_wins: HashSet<u16>,
-    /// Win keys the OS has seen go down (pressed in IDLE and passed
-    /// through). Used to detect an intentional bare Win+L.
+    /// Win keys currently held. Win always flows through to the OS (hooks
+    /// cannot hide it from winlogon's raw-input Win+L match anyway; the
+    /// DisableLockWorkstation policy handles that instead). Tracked so
+    /// injected keys combine with the physically-held Win and so an
+    /// intentional bare Win+L can be detected.
     os_wins: HashSet<u16>,
 }
 
@@ -73,7 +71,6 @@ impl StateMachine {
             candidate_key: None,
             map,
             pressed_modifiers: HashSet::new(),
-            suppressed_wins: HashSet::new(),
             os_wins: HashSet::new(),
         }
     }
@@ -90,7 +87,6 @@ impl StateMachine {
         self.state = State::Idle;
         self.candidate_key = None;
         self.pressed_modifiers.clear();
-        self.suppressed_wins.clear();
         self.os_wins.clear();
     }
 
@@ -123,19 +119,9 @@ impl StateMachine {
         }
     }
 
-    /// Add the suppressed Win keys to a chord's modifiers, so injected
-    /// output behaves as if Win were still physically held.
-    fn merge_suppressed(&self, keys: &Keys) -> Keys {
-        let mut merged = keys.clone();
-        for &w in &self.suppressed_wins {
-            if !merged.modifiers.contains(&w) {
-                merged.modifiers.insert(0, w);
-            }
-        }
-        merged
-    }
-
     /// Push a full press of `key`'s mapping (or the key itself if unmapped).
+    /// Keys are injected plain; any physically-held modifier (incl. Win)
+    /// combines with them at the OS level.
     fn press_mapped(&self, key: u16, actions: &mut Vec<Action>) {
         match self.map.get(&key) {
             Some(seq) => {
@@ -143,16 +129,16 @@ impl StateMachine {
                     if keys.main == EXIT_KEY {
                         actions.push(Action::Exit);
                     } else {
-                        actions.push(Action::Press(self.merge_suppressed(keys)));
+                        actions.push(Action::Press(keys.clone()));
                     }
                 }
             }
-            None => actions.push(Action::Press(self.merge_suppressed(&Keys::plain(key)))),
+            None => actions.push(Action::Press(Keys::plain(key))),
         }
     }
 
     fn press_plain(&self, vk: u16, actions: &mut Vec<Action>) {
-        actions.push(Action::Press(self.merge_suppressed(&Keys::plain(vk))));
+        actions.push(Action::Press(Keys::plain(vk)));
     }
 
     pub fn handle_key_event(&mut self, key: u16, is_down: bool, is_modifier: bool) -> Output {
@@ -167,38 +153,26 @@ impl StateMachine {
             }
         }
 
-        // The Win key gets special treatment during hyper flows: suppress it
-        // physically (so the OS can never match Win+L) and merge it into the
-        // injected chords instead. In IDLE it stays fully native.
+        // The Win key always flows through to the OS. Suppressing it never
+        // actually stopped winlogon's raw-input Win+L (that is handled by
+        // the DisableLockWorkstation policy), and suppressing the physical
+        // Win-up left the modifier stuck down. We only track it and advance
+        // the hyper state so space+Win+<key> injects into a held Win.
         if key == VK_LWIN || key == VK_RWIN {
-            if self.state == State::Idle {
-                self.suppressed_wins.remove(&key);
-                if is_down {
-                    self.os_wins.insert(key);
-                } else {
-                    self.os_wins.remove(&key);
-                }
-                // fall through to normal Idle handling (pass through)
-            } else if is_down {
-                // Fire a pending candidate first: the new Win applies to
-                // keys pressed after it, not to the deferred one.
+            if is_down {
+                self.os_wins.insert(key);
                 if self.state == State::SpaceNormDown {
+                    // Fire the deferred candidate before Win takes effect.
                     let cand = self.candidate_key.unwrap_or(0);
                     self.press_mapped(cand, &mut actions);
+                    self.set_state(State::HyperMode);
+                } else if self.state == State::OnlySpaceDown {
+                    self.set_state(State::HyperMode);
                 }
-                self.set_state(State::HyperMode);
-                self.suppressed_wins.insert(key);
-                return Output { pass_through: false, actions };
             } else {
-                if self.suppressed_wins.remove(&key) {
-                    // The OS never saw the down; swallow the up too.
-                    return Output { pass_through: false, actions };
-                }
-                // Win was pressed before the hyper flow started (the OS saw
-                // it go down), so its release must reach the OS.
                 self.os_wins.remove(&key);
-                return Output { pass_through: true, actions };
             }
+            return Output { pass_through: true, actions };
         }
 
         let pass_through = match self.state {
@@ -290,14 +264,6 @@ impl StateMachine {
                         self.press_mapped(key, &mut actions);
                     }
                     // Both down and up of mapped keys are suppressed.
-                    false
-                } else if !is_modifier && !self.suppressed_wins.is_empty() {
-                    // A Win key is suppressed-held: unmapped keys must be
-                    // re-injected with Win merged, or the OS would see them
-                    // bare (Win is invisible to it right now).
-                    if is_down {
-                        self.press_plain(key, &mut actions);
-                    }
                     false
                 } else {
                     true
@@ -485,38 +451,41 @@ mod tests {
     }
 
     #[test]
-    fn space_then_win_then_l_injects_win_right_and_leaks_nothing() {
-        // The Win+L protection: physical Win and L are both suppressed,
-        // output is a clean synthetic Win+Right.
+    fn space_then_win_flows_through_and_injects_plain_mapped_keys() {
+        // Win passes through to the OS (no suppression); the held physical
+        // Win combines with the plain injected arrow. Win-up must also pass
+        // through so the modifier never gets stuck.
         let mut m = sm();
         assert!(!m.handle_key_event(VK_SPACE, true, false).pass_through);
 
         let o_win = m.handle_key_event(VK_LWIN, true, true);
-        assert!(!o_win.pass_through, "physical Win must not reach the OS");
+        assert!(o_win.pass_through, "physical Win must reach the OS");
+        assert!(m.os_win_held());
         assert_eq!(m.state, State::HyperMode);
 
-        let o_l = m.handle_key_event(b'L' as u16, true, false);
-        assert!(!o_l.pass_through);
-        // L is unmapped in the test map: injected as itself, with Win merged.
-        assert_eq!(
-            o_l.actions,
-            vec![Action::Press(Keys { main: b'L' as u16, modifiers: vec![VK_LWIN] })]
-        );
-
-        // Mapped keys get Win merged too (h -> Win+Left).
+        // h -> left_arrow, injected plain (OS-held Win makes it Win+Left).
         let o_h = m.handle_key_event(VK_H, true, false);
-        assert_eq!(
-            o_h.actions,
-            vec![Action::Press(Keys { main: VK_LEFT, modifiers: vec![VK_LWIN] })]
-        );
+        assert!(!o_h.pass_through);
+        assert_eq!(o_h.actions, vec![Action::Press(Keys::plain(VK_LEFT))]);
 
-        // Suppressed Win's release is swallowed as well.
+        // Win release passes through (no stuck modifier).
         let o_up = m.handle_key_event(VK_LWIN, false, true);
-        assert!(!o_up.pass_through);
+        assert!(o_up.pass_through);
+        assert!(!m.os_win_held());
+    }
 
-        // After Win release, injections no longer carry Win.
-        let o_h2 = m.handle_key_event(VK_H, true, false);
-        assert_eq!(o_h2.actions, vec![Action::Press(Keys::plain(VK_LEFT))]);
+    #[test]
+    fn win_release_always_passes_through() {
+        // Regression: the physical Win-up must never be swallowed, or the
+        // OS keeps Win logically down (single A behaves like Win+A).
+        let mut m = sm();
+        m.handle_key_event(VK_SPACE, true, false);
+        m.handle_key_event(VK_LWIN, true, true);
+        m.handle_key_event(VK_H, true, false);
+        m.handle_key_event(VK_H, false, false);
+        let o_up = m.handle_key_event(VK_LWIN, false, true);
+        assert!(o_up.pass_through);
+        assert!(!m.os_win_held());
     }
 
     #[test]
@@ -547,15 +516,18 @@ mod tests {
     }
 
     #[test]
-    fn suppressed_win_is_not_os_visible() {
-        // Bare-Win+L detection must not fire for a hyper-suppressed Win,
-        // even if space is released while Win stays held.
+    fn win_in_hyper_is_os_visible() {
+        // Win flows through even inside a hyper flow, so it is OS-visible
+        // and released cleanly.
         let mut m = sm();
         m.handle_key_event(VK_SPACE, true, false);
         m.handle_key_event(VK_LWIN, true, true);
-        assert!(!m.os_win_held());
+        assert!(m.os_win_held());
         m.handle_key_event(VK_SPACE, false, false);
         assert_eq!(m.state, State::Idle);
+        // Win still physically held until its own up arrives.
+        assert!(m.os_win_held());
+        assert!(m.handle_key_event(VK_LWIN, false, true).pass_through);
         assert!(!m.os_win_held());
     }
 
